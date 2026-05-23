@@ -1,1 +1,928 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualiseur Interactif de Perception - e-puck2</title>
+    <!-- Tailwind CSS pour un design sobre et académique (style EPFL) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome pour les icônes de contrôle -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- KaTeX pour afficher les formules exactes du code camera.c -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        canvas {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
+    <!-- Header Style Académique -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-1 rounded">MICRO-315 | EPFL</span>
+                <h1 class="text-2xl font-extrabold text-slate-900 mt-1">Traitement d'Image Actif — Suivi de Cible</h1>
+                <p class="text-sm text-slate-500 mt-0.5">Outil interactif de calibration et d'analyse des signaux synchronisé avec camera.h et camera.c</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button id="btnPlay" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i> Balayage
+                </button>
+                <button id="btnExport" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> Exporter en Haute Résolution
+                </button>
+                <button id="btnPresentationMode" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-desktop"></i> Mode Plein Écran / Slide
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-6 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
+        
+        <!-- Colonne de Gauche : Contrôles et Paramètres -->
+        <section id="panelControls" class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-6 self-start">
+            
+            <!-- Section 1 : Constantes Matérielles Statuts (camera.h) -->
+            <div class="bg-slate-900 text-slate-100 rounded-xl p-4 text-xs space-y-2.5">
+                <p class="font-bold text-slate-300 border-b border-slate-700 pb-1.5 flex items-center gap-1.5">
+                    <i class="fa-solid fa-microchip text-red-500"></i> Constantes Statiques (camera.h)
+                </p>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono text-[11px]">
+                    <div class="text-slate-400">IMAGE_BUFFER_SIZE</div>
+                    <div class="text-right text-emerald-400 font-bold">640 px</div>
+                    
+                    <div class="text-slate-400">USED_LINE</div>
+                    <div class="text-right text-emerald-400 font-bold">Ligne 294</div>
+                    
+                    <div class="text-slate-400">CAM_CENTER_PX</div>
+                    <div class="text-right text-emerald-400 font-bold">320 px</div>
+
+                    <div class="text-slate-400">SNR_THRESHOLD</div>
+                    <div class="text-right text-emerald-400 font-bold">4.5f</div>
+
+                    <div class="text-slate-400">ACCEPT_FACTOR</div>
+                    <div class="text-right text-emerald-400 font-bold">2</div>
+                </div>
+            </div>
+
+            <!-- Section d'Exécution en Temps Réel de l'arbre de décision C (camera.c) -->
+            <div class="bg-indigo-950 text-slate-100 rounded-xl p-4 text-xs space-y-3">
+                <p class="font-bold text-indigo-300 border-b border-indigo-800 pb-1.5 flex items-center gap-1.5">
+                    <i class="fa-solid fa-code-branch text-indigo-400"></i> Arbre de Décision Actif (camera.c)
+                </p>
+                <div class="space-y-2 font-mono text-[11px]">
+                    <!-- Standard -->
+                    <div id="branchStandard" class="flex justify-between items-center p-1.5 rounded border border-slate-800 bg-slate-950/40 opacity-40 transition-all">
+                        <span class="text-slate-300">1. Standard (Deux flancs vus)</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-600/20 text-emerald-400 font-bold">ACTIF</span>
+                    </div>
+                    <!-- Bordure Droite -->
+                    <div id="branchRight" class="flex justify-between items-center p-1.5 rounded border border-slate-800 bg-slate-950/40 opacity-40 transition-all">
+                        <span class="text-slate-300">2. Bordure Droite (Montant perdu)</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-600/20 text-amber-400 font-bold">ACTIF</span>
+                    </div>
+                    <!-- Bordure Gauche -->
+                    <div id="branchLeft" class="flex justify-between items-center p-1.5 rounded border border-slate-800 bg-slate-950/40 opacity-40 transition-all">
+                        <span class="text-slate-300">3. Bordure Gauche (Descendant perdu)</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-600/20 text-amber-400 font-bold">ACTIF</span>
+                    </div>
+                    <!-- Inversion des bords -->
+                    <div id="branchInverted" class="flex justify-between items-center p-1.5 rounded border border-slate-800 bg-slate-950/40 opacity-40 transition-all">
+                        <span class="text-slate-300">4. Inversion (Ordre invalide)</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-red-600/20 text-red-400 font-bold">ACTIF</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-md font-bold text-slate-900 border-b border-slate-100 pb-2 mb-4">
+                    <i class="fa-solid fa-sliders text-indigo-500 mr-2"></i>Paramètres du Signal
+                </h2>
+                
+                <!-- Position Cible -->
+                <div class="space-y-2 mb-4">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label class="text-slate-600">Position de la Cible (Index)</label>
+                        <span id="valPos" class="text-indigo-600 font-bold">320 px</span>
+                    </div>
+                    <!-- Range étendu pour permettre de glisser complètement hors champ de vision (0-640) -->
+                    <input type="range" id="sliderPos" min="-100" max="740" value="320" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+
+                <!-- Largeur Cible -->
+                <div class="space-y-2 mb-4">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label class="text-slate-600">Largeur de la Cible</label>
+                        <span id="valWidth" class="text-indigo-600 font-bold">100 px</span>
+                    </div>
+                    <input type="range" id="sliderWidth" min="20" max="250" value="100" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+
+                <!-- Bruit Capteur -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label class="text-slate-600">Bruit thermique (Simulé)</label>
+                        <span id="valNoise" class="text-indigo-600 font-bold">5 %</span>
+                    </div>
+                    <input type="range" id="sliderNoise" min="0" max="40" value="5" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-md font-bold text-slate-900 border-b border-slate-100 pb-2 mb-4">
+                    <i class="fa-solid fa-wave-square text-indigo-500 mr-2"></i>Fenêtres Algorithmiques Real-Time
+                </h2>
+
+                <!-- Smooth Window -->
+                <div class="space-y-2 mb-4">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label class="text-slate-600 flex items-center gap-1">
+                            Lissage (Moyenne) <span class="text-slate-400 font-mono text-[10px]">SMOOTH_WINDOW</span>
+                        </label>
+                        <span id="valSmooth" class="text-indigo-600 font-mono font-bold">25 px</span>
+                    </div>
+                    <input type="range" id="sliderSmooth" min="3" max="81" step="2" value="25" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+
+                <!-- Area Window -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <label class="text-slate-600 flex items-center gap-1">
+                            Intégration d'Aire <span class="text-slate-400 font-mono text-[10px]">AREA_WINDOW</span>
+                        </label>
+                        <span id="valArea" class="text-indigo-600 font-mono font-bold">40 px</span>
+                    </div>
+                    <input type="range" id="sliderArea" min="4" max="120" step="2" value="40" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+            </div>
+
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-xs space-y-2 text-indigo-900">
+                <p class="font-bold"><i class="fa-solid fa-circle-info mr-1"></i> Logique de Décision (camera.c) :</p>
+                <ul class="list-disc list-inside space-y-1 pl-1 text-indigo-800">
+                    <li>La <strong>Dérivée Centrée</strong> élimine l'offset lumineux ambiant.</li>
+                    <li>L'<strong>Aire locale maximale</strong> localise le flanc montant (gauche).</li>
+                    <li>L'<strong>Aire locale minimale</strong> localise le flanc descendant (droite).</li>
+                    <li>Le centre cible est calculé par la moyenne des deux positions d'aire optimale.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Colonne de Droite : Les Canvases Synchronisés -->
+        <section id="panelVisuals" class="lg:col-span-8 space-y-6">
+            
+            <!-- Graphique 1: Signal Brut -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                        1. Signal Brut Colorimétrique (Grisé)
+                    </span>
+                    <div id="formulaRaw" class="text-xs text-slate-500 font-mono"></div>
+                </div>
+                <div class="relative w-full h-36">
+                    <canvas id="canvasRaw" class="w-full h-full block rounded border border-slate-100"></canvas>
+                </div>
+            </div>
+
+            <!-- Graphique 2: Signal Lissé -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                        2. Signal Lissé (Moyenne Glissante)
+                    </span>
+                    <div id="formulaSmooth" class="text-xs text-slate-500 font-mono"></div>
+                </div>
+                <div class="relative w-full h-36">
+                    <canvas id="canvasSmooth" class="w-full h-full block rounded border border-slate-100"></canvas>
+                </div>
+            </div>
+
+            <!-- Graphique 3: Dérivée Centrée -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                        3. Dérivée Centrée & Fenêtres d'Intégration (exactes)
+                    </span>
+                    <div id="formulaDeriv" class="text-xs text-slate-500 font-mono"></div>
+                </div>
+                <div class="relative w-full h-44">
+                    <canvas id="canvasDeriv" class="w-full h-full block rounded border border-slate-100"></canvas>
+                </div>
+            </div>
+
+            <!-- Graphique 4: Aire Intégrée -->
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                        4. Aire Locale Intégrée (Somme de la Dérivée locale)
+                    </span>
+                    <div id="formulaArea" class="text-xs text-slate-500 font-mono"></div>
+                </div>
+                <div class="relative w-full h-36">
+                    <canvas id="canvasArea" class="w-full h-full block rounded border border-slate-100"></canvas>
+                </div>
+            </div>
+
+            <!-- Légende pour les Slides de Présentation -->
+            <div class="bg-slate-800 text-white rounded-xl p-4 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 bg-emerald-500 opacity-20 border-l-2 border-r-2 border-emerald-500 inline-block"></span>
+                    <span>Flanc Montant (Rising Edge)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 bg-red-500 opacity-20 border-l-2 border-r-2 border-red-500 inline-block"></span>
+                    <span>Flanc Descendant (Falling Edge)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-0.5 border-t border-dashed border-amber-400 inline-block"></span>
+                    <span>Centre Cible Réel (CAM_CENTER)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                    <span>Index de Consigne final</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal pour l'exportation d'images haute résolution -->
+    <div id="modalExport" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900">Générateur d'image pour vos slides</h3>
+                <button id="btnCloseModal" class="text-slate-400 hover:text-slate-600 transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-sm text-slate-500">Un unique canva haute définition regroupant l'ensemble de vos réglages réels a été généré. Vous pouvez le télécharger pour l'insérer proprement dans votre PowerPoint ou document Beamer LaTeX.</p>
+            
+            <div class="border border-slate-100 rounded-lg overflow-hidden bg-slate-50 max-h-80 overflow-y-auto">
+                <img id="exportPreview" src="" alt="Aperçu export" class="w-full h-auto block">
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button id="btnCancelExport" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition">Annuler</button>
+                <a id="lnkDownload" href="#" download="epuck2_perception_signals_640px.png" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-down"></i> Télécharger le PNG
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400">
+        <p>© 2026 Ventura & Vial - Projet e-puck2 - EPFL Microtechnique</p>
+    </footer>
+
+    <script>
+        // Formules LaTeX à compiler avec KaTeX au chargement
+        window.onload = function() {
+            katex.render("Y[i] = 0.2126 \\cdot R + 0.7152 \\cdot G + 0.0722 \\cdot B", document.getElementById("formulaRaw"));
+            katex.render("S[i] = \\frac{1}{W_{smooth}} \\sum_{j=i-W/2}^{i+W/2} Y[j]", document.getElementById("formulaSmooth"));
+            katex.render("D[i] = \\frac{S[i+1] - S[i-1]}{2}", document.getElementById("formulaDeriv"));
+            katex.render("A[i] = \\sum_{j=i-W/2}^{i+W/2} D[j]", document.getElementById("formulaArea"));
+            
+            // Initialiser l'application
+            initApp();
+        };
+
+        function initApp() {
+            // Éléments DOM
+            const sliderPos = document.getElementById("sliderPos");
+            const sliderWidth = document.getElementById("sliderWidth");
+            const sliderNoise = document.getElementById("sliderNoise");
+            const sliderSmooth = document.getElementById("sliderSmooth");
+            const sliderArea = document.getElementById("sliderArea");
+
+            const valPos = document.getElementById("valPos");
+            const valWidth = document.getElementById("valWidth");
+            const valNoise = document.getElementById("valNoise");
+            const valSmooth = document.getElementById("valSmooth");
+            const valArea = document.getElementById("valArea");
+
+            // Badges des branches d'exécution
+            const branchStandard = document.getElementById("branchStandard");
+            const branchRight = document.getElementById("branchRight");
+            const branchLeft = document.getElementById("branchLeft");
+            const branchInverted = document.getElementById("branchInverted");
+
+            // Canvases
+            const canvasRaw = document.getElementById("canvasRaw");
+            const canvasSmooth = document.getElementById("canvasSmooth");
+            const canvasDeriv = document.getElementById("canvasDeriv");
+            const canvasArea = document.getElementById("canvasArea");
+
+            const size = 640; // Strictement synchronisé avec IMAGE_BUFFER_SIZE de camera.h
+            
+            let isPlaying = false;
+            let currentSweepX = 0;
+            let hoveredX = null;
+
+            // Persistance de la consigne (identique au comportement statique C : static uint16_t target_index = IMAGE_BUFFER_SIZE/2)
+            let lastValidTarget = size / 2;
+
+            // Fonction pour synchroniser le hover sur l'ensemble des graphes
+            function getMouseXOnCanvas(e, canvas) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                return Math.floor((x / rect.width) * size);
+            }
+
+            [canvasRaw, canvasSmooth, canvasDeriv, canvasArea].forEach(canvas => {
+                canvas.addEventListener('mousemove', (e) => {
+                    hoveredX = getMouseXOnCanvas(e, canvas);
+                    updateVisuals();
+                });
+                canvas.addEventListener('mouseleave', () => {
+                    hoveredX = null;
+                    updateVisuals();
+                });
+            });
+
+            // Boutons d'animation
+            const btnPlay = document.getElementById("btnPlay");
+            btnPlay.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                if (isPlaying) {
+                    btnPlay.innerHTML = `<i class="fa-solid fa-pause"></i> Pause`;
+                    btnPlay.classList.replace("bg-indigo-600", "bg-amber-600");
+                    btnPlay.classList.replace("hover:bg-indigo-700", "hover:bg-amber-700");
+                    animateSweep();
+                } else {
+                    btnPlay.innerHTML = `<i class="fa-solid fa-play"></i> Balayage`;
+                    btnPlay.classList.replace("bg-amber-600", "bg-indigo-600");
+                    btnPlay.classList.replace("hover:bg-amber-700", "hover:bg-indigo-700");
+                }
+            });
+
+            function animateSweep() {
+                if (!isPlaying) return;
+                currentSweepX = (currentSweepX + 3) % size; // Légèrement accéléré pour 640px
+                updateVisuals();
+                requestAnimationFrame(animateSweep);
+            }
+
+            // Mode plein écran / Slide
+            let presentationMode = false;
+            const btnPresentationMode = document.getElementById("btnPresentationMode");
+            btnPresentationMode.addEventListener('click', () => {
+                presentationMode = !presentationMode;
+                const panelControls = document.getElementById("panelControls");
+                const panelVisuals = document.getElementById("panelVisuals");
+                
+                if (presentationMode) {
+                    panelControls.classList.add("hidden");
+                    panelVisuals.classList.replace("lg:col-span-8", "lg:col-span-12");
+                    btnPresentationMode.innerHTML = `<i class="fa-solid fa-desktop"></i> Quitter Mode Slide`;
+                    btnPresentationMode.classList.replace("bg-slate-800", "bg-red-600");
+                    btnPresentationMode.classList.replace("hover:bg-slate-900", "hover:bg-red-700");
+                } else {
+                    panelControls.classList.remove("hidden");
+                    panelVisuals.classList.replace("lg:col-span-12", "lg:col-span-8");
+                    btnPresentationMode.innerHTML = `<i class="fa-solid fa-desktop"></i> Mode Plein Écran / Slide`;
+                    btnPresentationMode.classList.replace("bg-red-600", "bg-slate-800");
+                    btnPresentationMode.classList.replace("hover:bg-red-700", "hover:bg-slate-900");
+                }
+                updateVisuals();
+            });
+
+            // Mise à jour de l'affichage des valeurs au changement des sliders
+            function updateSliderText() {
+                valPos.innerText = `${sliderPos.value} px`;
+                valWidth.innerText = `${sliderWidth.value} px`;
+                valNoise.innerText = `${sliderNoise.value} %`;
+                valSmooth.innerText = `${sliderSmooth.value} px`;
+                valArea.innerText = `${sliderArea.value} px`;
+            }
+
+            [sliderPos, sliderWidth, sliderNoise, sliderSmooth, sliderArea].forEach(slider => {
+                slider.addEventListener('input', () => {
+                    updateSliderText();
+                    updateVisuals();
+                });
+            });
+
+            // Génération des données mathématiques exactes et arbre de décision (camera.c & camera.h)
+            function computeData() {
+                const N = size;
+                const pos = parseInt(sliderPos.value);
+                const width = parseInt(sliderWidth.value);
+                const noiseLvl = parseFloat(sliderNoise.value);
+                const wSmooth = parseInt(sliderSmooth.value);
+                const wArea = parseInt(sliderArea.value);
+
+                const halfSmooth = Math.floor(wSmooth / 2);
+                const halfArea = Math.floor(wArea / 2);
+
+                const leftEdge = pos - Math.floor(width / 2);
+                const rightEdge = pos + Math.floor(width / 2);
+
+                // 1. Génération du signal Brut avec bruit
+                const raw = [];
+                for (let i = 0; i < N; i++) {
+                    let baseValue = 240; // Fond clair (arène)
+                    if (i >= leftEdge && i <= rightEdge) {
+                        baseValue = 45; // Cible sombre (jupe noire PETG)
+                    }
+                    // Bruit thermique réaliste
+                    let noise = (Math.random() - 0.5) * noiseLvl * 6.5;
+                    raw.push(Math.max(0, Math.min(255, baseValue + noise)));
+                }
+
+                // 2. Moyenne Glissante (Lissage)
+                const smoothed = [];
+                for (let i = 0; i < N; i++) {
+                    let sum = 0;
+                    let start = (i >= halfSmooth) ? i - halfSmooth : 0;
+                    let end = (i + halfSmooth < N) ? i + halfSmooth : N - 1;
+                    for (let j = start; j <= end; j++) {
+                        sum += raw[j];
+                    }
+                    smoothed.push(sum / (end - start + 1));
+                }
+
+                // 3. Dérivée Centrée (camera.c)
+                const deriv = [];
+                deriv.push(smoothed[1] - smoothed[0]);
+                for (let i = 1; i < N - 1; i++) {
+                    deriv.push((smoothed[i + 1] - smoothed[i - 1]) / 2.0);
+                }
+                deriv.push(smoothed[N - 1] - smoothed[N - 2]);
+
+                // 4. Intégrale de l'Aire (Somme locale de la dérivée)
+                const areas = [];
+                let bestFallingVal = 1e9;
+                let bestRisingVal = -1e9;
+                let bestFallingIdx = 0;
+                let bestRisingIdx = 0;
+
+                for (let i = 0; i < N; i++) {
+                    let sum = 0;
+                    let start = (i > halfArea) ? i - halfArea : 0;
+                    let end = (i < N - halfArea) ? i + halfArea : N - 1;
+                    for (let j = start; j <= end; j++) {
+                        sum += deriv[j];
+                    }
+                    areas.push(sum);
+
+                    // Falling edge (Min area -> Transition blanc vers noir)
+                    if (sum < bestFallingVal) {
+                        bestFallingVal = sum;
+                        bestFallingIdx = i;
+                    }
+                    // Rising edge (Max area -> Transition noir vers blanc)
+                    if (sum > bestRisingVal) {
+                        bestRisingVal = sum;
+                        bestRisingIdx = i;
+                    }
+                }
+
+                // --- LOGIQUE DE DÉCISION DE BORDURE ET SNR EXACTE DE CAMERA.C ---
+                
+                // Détection de présence (SNR)
+                let sum_abs_deriv = 0;
+                let max_abs_deriv = 0;
+                for(let i = 0; i < N; i++) {
+                    let abs_d = Math.abs(deriv[i]);
+                    sum_abs_deriv += abs_d;
+                    if(abs_d > max_abs_deriv) max_abs_deriv = abs_d;
+                }
+                let mean = sum_abs_deriv / N;
+                let snr = mean === 0 ? 0 : max_abs_deriv / mean;
+                let good_signal = (snr > 4.5); // SNR_THRESHOLD = 4.5f
+
+                // Traitement des flancs absolus pour l'Arbre de Décision
+                let falling_edge_abs = Math.abs(bestFallingVal);
+                let rising_edge_abs = Math.abs(bestRisingVal);
+                const ACCEPT_FACTOR = 2.0;
+
+                let activeBranch = "STANDARD";
+                let target_index = lastValidTarget;
+
+                if (!good_signal) {
+                    activeBranch = "LOST"; // signal trop bas
+                } 
+                // falling edge <-> right side (la cible sort par la droite de la caméra, on perd le rising edge à gauche)
+                else if (falling_edge_abs > ACCEPT_FACTOR * rising_edge_abs) {
+                    activeBranch = "RIGHT_BORDER";
+                    target_index = Math.round((bestFallingIdx + N) / 2);
+                } 
+                // left side <-> rising edge (la cible sort par la gauche de la caméra, on perd le falling edge à droite)
+                else if (rising_edge_abs > ACCEPT_FACTOR * falling_edge_abs) {
+                    activeBranch = "LEFT_BORDER";
+                    target_index = Math.round((0 + bestRisingIdx) / 2);
+                } 
+                // Inversion physique de l'ordre d'apparition
+                else if (bestRisingIdx < bestFallingIdx) {
+                    activeBranch = "INVERTED_ORDER";
+                    good_signal = false; // invalidation du signal
+                } 
+                // Cas standard (les deux flancs sont bien identifiés)
+                else {
+                    activeBranch = "STANDARD";
+                    target_index = Math.round((bestFallingIdx + bestRisingIdx) / 2);
+                }
+
+                // Sauvegarde d'état statique
+                if (good_signal && activeBranch !== "INVERTED_ORDER") {
+                    lastValidTarget = target_index;
+                }
+
+                return {
+                    raw, smoothed, deriv, areas,
+                    bestFallingIdx, bestRisingIdx, finalTarget: target_index,
+                    good_signal, activeBranch, falling_edge_abs, rising_edge_abs,
+                    wArea, halfArea, leftEdge, rightEdge
+                };
+            }
+
+            // Mettre à jour l'arbre de décision visuel dans le panneau de gauche
+            function updateDecisionUI(activeBranch, goodSignal) {
+                // reset all branch stylings
+                [branchStandard, branchRight, branchLeft, branchInverted].forEach(el => {
+                    el.classList.add("opacity-40");
+                    el.classList.remove("border-emerald-500", "border-amber-500", "border-red-500", "bg-emerald-950/50", "bg-amber-950/50", "bg-red-950/50");
+                });
+
+                if (!goodSignal && activeBranch !== "INVERTED_ORDER") {
+                    return; // Tout est éteint (Mode Lost)
+                }
+
+                switch (activeBranch) {
+                    case "STANDARD":
+                        branchStandard.classList.remove("opacity-40");
+                        branchStandard.classList.add("border-emerald-500", "bg-emerald-950/50");
+                        break;
+                    case "RIGHT_BORDER":
+                        branchRight.classList.remove("opacity-40");
+                        branchRight.classList.add("border-amber-500", "bg-amber-950/50");
+                        break;
+                    case "LEFT_BORDER":
+                        branchLeft.classList.remove("opacity-40");
+                        branchLeft.classList.add("border-amber-500", "bg-amber-950/50");
+                        break;
+                    case "INVERTED_ORDER":
+                        branchInverted.classList.remove("opacity-40");
+                        branchInverted.classList.add("border-red-500", "bg-red-950/50");
+                        break;
+                }
+            }
+
+            // Fonction de dessin d'un graphique sur canvas
+            function drawGraph(canvas, dataList, strokeColor, type = 'line', options = {}) {
+                const ctx = canvas.getContext('2d');
+                const ratio = window.devicePixelRatio || 1;
+                
+                const width = canvas.width / ratio;
+                const height = canvas.height / ratio;
+
+                const marginTop = 15;
+                const marginBottom = 15;
+                const graphHeight = height - marginTop - marginBottom;
+
+                ctx.clearRect(0, 0, width, height);
+
+                // Couleur de fond élégante
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, width, height);
+
+                // Grille académique
+                ctx.strokeStyle = "#f1f5f9";
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 4; i++) {
+                    const y = marginTop + (graphHeight * i) / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+
+                let minVal = options.min !== undefined ? options.min : Math.min(...dataList);
+                let maxVal = options.max !== undefined ? options.max : Math.max(...dataList);
+                if (minVal === maxVal) {
+                    minVal -= 1;
+                    maxVal += 1;
+                }
+
+                // Ligne du Zéro pour signaux alternatifs (Dérivée/Aire)
+                if (minVal < 0 && maxVal > 0) {
+                    const zeroY = marginTop + graphHeight * (1 - (0 - minVal) / (maxVal - minVal));
+                    ctx.strokeStyle = "#cbd5e1";
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(0, zeroY);
+                    ctx.lineTo(width, zeroY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Mapping Math -> Pixel (basé sur la géométrie logique du layout)
+                function mapX(i) {
+                    return (i / (size - 1)) * width;
+                }
+                function mapY(val) {
+                    return marginTop + graphHeight * (1 - (val - minVal) / (maxVal - minVal));
+                }
+
+                // Dessin du tracé principal
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = presentationMode ? 3.5 : 2;
+                ctx.beginPath();
+                ctx.moveTo(mapX(0), mapY(dataList[0]));
+                for (let i = 1; i < size; i++) {
+                    ctx.lineTo(mapX(i), mapY(dataList[i]));
+                }
+                ctx.stroke();
+
+                // Callbacks de dessin complexes (Ex: Fenêtres translucides)
+                if (options.onDraw) {
+                    options.onDraw(ctx, mapX, mapY, width, height);
+                }
+
+                // Curseur de tracking synchronisé
+                const activeX = hoveredX !== null ? hoveredX : (isPlaying ? currentSweepX : null);
+                if (activeX !== null && activeX >= 0 && activeX < size) {
+                    const pxX = mapX(activeX);
+                    ctx.strokeStyle = "rgba(99, 102, 241, 0.4)";
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([3, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(pxX, 0);
+                    ctx.lineTo(pxX, height);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Affichage de la valeur sous le curseur
+                    ctx.fillStyle = "#475569";
+                    ctx.font = "bold 10px monospace";
+                    ctx.fillText(`x:${activeX} y:${dataList[activeX].toFixed(1)}`, pxX + 6, marginTop + 12);
+                }
+            }
+
+            // Rafraîchir l'ensemble des graphiques
+            function updateVisuals() {
+                const ratio = window.devicePixelRatio || 1;
+                [canvasRaw, canvasSmooth, canvasDeriv, canvasArea].forEach(canvas => {
+                    const rect = canvas.parentNode.getBoundingClientRect();
+                    canvas.width = rect.width * ratio;
+                    canvas.height = rect.height * ratio;
+                    const ctx = canvas.getContext('2d');
+                    
+                    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                    
+                    canvas.style.width = `${rect.width}px`;
+                    canvas.style.height = `${rect.height}px`;
+                });
+
+                const dataset = computeData();
+
+                // Mise à jour de l'UI indicateur d'arbre de décision
+                updateDecisionUI(dataset.activeBranch, dataset.good_signal);
+
+                // 1. SIGNAL BRUT
+                drawGraph(canvasRaw, dataset.raw, "#64748b", 'line', {
+                    min: 0, max: 255,
+                    onDraw: (ctx, mapX, mapY, w, h) => {
+                        // Tracé d'une bande pour la position théorique de la cible
+                        ctx.fillStyle = "rgba(251, 191, 36, 0.08)";
+                        ctx.fillRect(mapX(dataset.leftEdge), 0, mapX(dataset.rightEdge) - mapX(dataset.leftEdge), h);
+                        ctx.strokeStyle = "rgba(251, 191, 36, 0.5)";
+                        ctx.setLineDash([2, 2]);
+                        ctx.beginPath();
+                        ctx.moveTo(mapX(dataset.leftEdge), 0); ctx.lineTo(mapX(dataset.leftEdge), h);
+                        ctx.moveTo(mapX(dataset.rightEdge), 0); ctx.lineTo(mapX(dataset.rightEdge), h);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                });
+
+                // 2. SIGNAL LISSÉ (Moyenne glissante)
+                drawGraph(canvasSmooth, dataset.smoothed, "#06b6d4", 'line', {
+                    min: 0, max: 255
+                });
+
+                // 3. DÉRIVÉE CENTRÉE (Exposition du glissement de fenêtre)
+                drawGraph(canvasDeriv, dataset.deriv, "#a855f7", 'line', {
+                    min: -45, max: 45,
+                    onDraw: (ctx, mapX, mapY, w, h) => {
+                        // Dessiner les fenêtres d'intégration autour des deux extrêmes
+                        const drawIntegrationWindow = (idx, color, label) => {
+                            const start = Math.max(0, idx - dataset.halfArea);
+                            const end = Math.min(size - 1, idx + dataset.halfArea);
+                            const pxStart = mapX(start);
+                            const pxEnd = mapX(end);
+                            
+                            ctx.fillStyle = color;
+                            ctx.fillRect(pxStart, 0, pxEnd - pxStart, h);
+
+                            ctx.strokeStyle = color.replace("0.12", "0.6");
+                            ctx.lineWidth = 1.5;
+                            ctx.beginPath();
+                            ctx.moveTo(pxStart, 0); ctx.lineTo(pxStart, h);
+                            ctx.moveTo(pxEnd, 0); ctx.lineTo(pxEnd, h);
+                            ctx.stroke();
+
+                            ctx.fillStyle = color.replace("0.12", "1.0");
+                            ctx.font = "bold 9px 'Inter', sans-serif";
+                            ctx.fillText(label, pxStart + 4, 18);
+                        };
+
+                        // 1. Zone du flanc montant (Rising Edge - Vert) - Uniquement si visible
+                        if (dataset.activeBranch !== "RIGHT_BORDER") {
+                            drawIntegrationWindow(dataset.bestRisingIdx, "rgba(16, 185, 129, 0.12)", "Flanc Montant (Max)");
+                        } else {
+                            // Hachures pour montrer la perte du flanc montant à droite
+                            ctx.fillStyle = "rgba(239, 68, 68, 0.05)";
+                            ctx.fillRect(mapX(550), 0, mapX(640)-mapX(550), h);
+                            ctx.fillStyle = "#ef4444";
+                            ctx.font = "italic bold 9px 'Inter', sans-serif";
+                            ctx.fillText("Flanc montant PERDU (Hors cadre)", mapX(430), h - 15);
+                        }
+
+                        // 2. Zone du flanc descendant (Falling Edge - Rouge) - Uniquement si visible
+                        if (dataset.activeBranch !== "LEFT_BORDER") {
+                            drawIntegrationWindow(dataset.bestFallingIdx, "rgba(239, 68, 68, 0.12)", "Flanc Descendant (Min)");
+                        } else {
+                            // Hachures pour montrer la perte du flanc descendant à gauche
+                            ctx.fillStyle = "rgba(239, 68, 68, 0.05)";
+                            ctx.fillRect(0, 0, mapX(90), h);
+                            ctx.fillStyle = "#ef4444";
+                            ctx.font = "italic bold 9px 'Inter', sans-serif";
+                            ctx.fillText("Flanc descendant PERDU (Hors cadre)", mapX(15), h - 15);
+                        }
+
+                        // Affichage dynamique de la fenêtre pour le curseur actif
+                        const activeX = hoveredX !== null ? hoveredX : (isPlaying ? currentSweepX : null);
+                        if (activeX !== null) {
+                            const activeStart = Math.max(0, activeX - dataset.halfArea);
+                            const activeEnd = Math.min(size - 1, activeX + dataset.halfArea);
+                            ctx.fillStyle = "rgba(99, 102, 241, 0.08)";
+                            ctx.fillRect(mapX(activeStart), 0, mapX(activeEnd) - mapX(activeStart), h);
+                            ctx.strokeStyle = "rgba(99, 102, 241, 0.3)";
+                            ctx.lineWidth = 1;
+                            ctx.strokeRect(mapX(activeStart), 0, mapX(activeEnd) - mapX(activeStart), h);
+                        }
+                    }
+                });
+
+                // 4. AIRE INTÉGRÉE
+                drawGraph(canvasArea, dataset.areas, "#4f46e5", 'line', {
+                    min: -600, max: 600,
+                    onDraw: (ctx, mapX, mapY, w, h) => {
+                        // Point minimal (Falling edge) - si on ne l'a pas perdu
+                        if (dataset.activeBranch !== "LEFT_BORDER") {
+                            const pMinX = mapX(dataset.bestFallingIdx);
+                            const pMinY = mapY(dataset.areas[dataset.bestFallingIdx]);
+                            ctx.fillStyle = "#ef4444";
+                            ctx.beginPath();
+                            ctx.arc(pMinX, pMinY, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        // Point maximal (Rising edge) - si on ne l'a pas perdu
+                        if (dataset.activeBranch !== "RIGHT_BORDER") {
+                            const pMaxX = mapX(dataset.bestRisingIdx);
+                            const pMaxY = mapY(dataset.areas[dataset.bestRisingIdx]);
+                            ctx.fillStyle = "#10b981";
+                            ctx.beginPath();
+                            ctx.arc(pMaxX, pMaxY, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        // Dessin des repères d'estimation de bordure (0 ou 640)
+                        if (dataset.activeBranch === "RIGHT_BORDER") {
+                            ctx.strokeStyle = "rgba(239, 68, 68, 0.5)";
+                            ctx.lineWidth = 1.5;
+                            ctx.setLineDash([3, 3]);
+                            ctx.beginPath();
+                            ctx.moveTo(mapX(640), 0); ctx.lineTo(mapX(640), h);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            // Petite flèche ou texte de rappel
+                            ctx.fillStyle = "#d97706";
+                            ctx.font = "bold 9px 'Inter', sans-serif";
+                            ctx.fillText("Flanc montant supposé à 640 px", mapX(400), h/4);
+                        } else if (dataset.activeBranch === "LEFT_BORDER") {
+                            ctx.strokeStyle = "rgba(239, 68, 68, 0.5)";
+                            ctx.lineWidth = 1.5;
+                            ctx.setLineDash([3, 3]);
+                            ctx.beginPath();
+                            ctx.moveTo(mapX(0), 0); ctx.lineTo(mapX(0), h);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+
+                            ctx.fillStyle = "#d97706";
+                            ctx.font = "bold 9px 'Inter', sans-serif";
+                            ctx.fillText("Flanc descendant supposé à 0 px", mapX(15), h/4);
+                        }
+
+                        // Ligne verticale au centre final déterminé par odométrie logicielle
+                        const tarX = mapX(dataset.finalTarget);
+                        ctx.strokeStyle = "#fbbf24";
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.moveTo(tarX, 0);
+                        ctx.lineTo(tarX, h);
+                        ctx.stroke();
+
+                        // Point central de consigne finale
+                        ctx.fillStyle = "#fbbf24";
+                        ctx.strokeStyle = "#ffffff";
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(tarX, h / 2, 7, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            // --- EXPORTATION ET MODAL ---
+            const btnExport = document.getElementById("btnExport");
+            const modalExport = document.getElementById("modalExport");
+            const btnCloseModal = document.getElementById("btnCloseModal");
+            const btnCancelExport = document.getElementById("btnCancelExport");
+            const exportPreview = document.getElementById("exportPreview");
+            const lnkDownload = document.getElementById("lnkDownload");
+
+            btnExport.addEventListener('click', () => {
+                const dataset = computeData();
+                
+                // On crée un canvas temporaire géant et extrêmement propre
+                const expCanvas = document.createElement('canvas');
+                const expWidth = 1200;
+                const expHeight = 1100;
+                expCanvas.width = expWidth;
+                expCanvas.height = expHeight;
+                const ctx = expCanvas.getContext('2d');
+
+                // Fond blanc uni
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, expWidth, expHeight);
+
+                // En-tête académique
+                ctx.fillStyle = '#1e293b';
+                ctx.font = 'bold 28px Helvetica';
+                ctx.fillText('ANALYSE ET TRAITEMENT DU SIGNAL OPTIQUE — e-puck2', 50, 60);
+                
+                ctx.fillStyle = '#64748b';
+                ctx.font = '16px Helvetica';
+                ctx.fillText(`Configuration réelle : IMAGE_BUFFER_SIZE: 640 px | USED_LINE: ${294} | Smooth Window: ${sliderSmooth.value} px | Area Window: ${sliderArea.value} px`, 50, 95);
+
+                // Fonction helper pour copier un canvas individuel vers le canvas géant d'export
+                function drawSubGraph(sourceCanvas, titleText, offsetY, heightSub) {
+                    ctx.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height, 50, offsetY, 1100, heightSub);
+                    
+                    // Titre du sous-graphe
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = 'bold 18px Helvetica';
+                    ctx.fillText(titleText, 50, offsetY - 10);
+                }
+
+                // Synchroniser le dessin des canvases réels de l'application
+                drawSubGraph(canvasRaw, "1. Extraction de la ligne brute active (Grisée - Ligne 294)", 170, 160);
+                drawSubGraph(canvasSmooth, "2. Filtrage passe-bas (Moyenne glissante - SMOOTH_WINDOW)", 400, 160);
+                drawSubGraph(canvasDeriv, "3. Détection de contours par Dérivée Centrée & Fenêtres d'intégration", 650, 180);
+                drawSubGraph(canvasArea, "4. Fonction d'Aire intégrée (AREA_WINDOW) & Détection des extremums locaux", 900, 160);
+
+                // Pied de page
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'italic 12px Helvetica';
+                ctx.fillText('Généré pour le rapport de Miniprojet e-puck2 - Groupe 23 (Ventura & Vial) - EPFL', 50, 1075);
+
+                // Conversion vers une image URL
+                const dataURL = expCanvas.toDataURL('image/png');
+                exportPreview.src = dataURL;
+                lnkDownload.href = dataURL;
+
+                // Affichage Modal
+                modalExport.classList.remove('hidden');
+            });
+
+            // Fermetures de la modal
+            [btnCloseModal, btnCancelExport].forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modalExport.classList.add('hidden');
+                });
+            });
+
+            // Lancement initial de la vue
+            updateSliderText();
+            updateVisuals();
+
+            // S'assurer de rafraîchir en cas de resize d'écran
+            window.addEventListener('resize', updateVisuals);
+        }
+    </script>
+</body>
+</html>
